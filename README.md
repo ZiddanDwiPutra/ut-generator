@@ -9,7 +9,6 @@
 - click run on your vscode ide, or install extension pack for java before try to run program
 <br>
 <br>
-(https://ibb.co/LrjFmzX)
 
 ![Main.java](https://i.ibb.co/YPM7p7P/1.jpg)
 
