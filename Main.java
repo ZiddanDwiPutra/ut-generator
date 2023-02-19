@@ -2,10 +2,12 @@ import java.io.File;
 
 public class Main {
     public static void main(String[] args) {
+        // Target folder (.compoent.ts)
         File targetFolder = new File("C:\\Projects\\no-ads-link\\src");
+        // Result generated unit test (.components.spec.ts)
         File resultFolder = new File("C:\\Projects\\result");
+        
         if(!resultFolder.exists()) resultFolder.mkdirs();
-
         new Main(targetFolder, resultFolder);
     }
 
