@@ -93,7 +93,7 @@ class TSDataFile {
 
     public boolean isStartOfFunction() {
         CharSequence[] hasList = {"(", ")", "{"};
-        CharSequence[] notHasList = {"if", "this", ";", "constructor", "catch"};
+        CharSequence[] notHasList = {"if", "this", ";", "constructor", "catch", "get ", "set ", "setTimeout", "new "};
         return hasNotHas(hasList, notHasList);
     }
 
@@ -121,7 +121,13 @@ class TSDataFile {
                 "  spyMethod.toHaveBeenCalled();",
                 "})\n\n"
             );
+            if(!isValidFunction(fun.functionName)) return "";
             return stdUT;
+        }
+        public Boolean isValidFunction(String functionName) {
+            CharSequence[] has = {};
+            CharSequence[] notHas = {"*", ":", ".", "for", "if", "switch"};
+            return hasNotHas(has, notHas);
         }
 
         public String newLiner(String ... arr){

@@ -3,9 +3,9 @@ import java.io.File;
 public class Main {
     public static void main(String[] args) {
         // Target folder (.compoent.ts)
-        File targetFolder = new File("C:\\Projects\\no-ads-link\\src");
+        File targetFolder = new File("C:\\project\\t-survey-web\\src\\app\\dashboard\\pages\\create-survey");
         // Result generated unit test (.components.spec.ts)
-        File resultFolder = new File("C:\\Projects\\result");
+        File resultFolder = new File("C:\\project\\result");
         
         if(!resultFolder.exists()) resultFolder.mkdirs();
         new Main(targetFolder, resultFolder);
