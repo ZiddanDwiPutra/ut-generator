@@ -164,7 +164,7 @@ class TSDataFile {
                         .replace(DEF.METHOD, fun.functionName)
                         .replace(DEF.PARAMS, ""),
                 "  spyMethod.toHaveBeenCalled();",
-                "})\n\n"
+                "});\n\n"
             );
             if(!isValidFunction(fun.functionName)) return "";
             return stdUT;

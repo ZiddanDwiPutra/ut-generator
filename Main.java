@@ -4,7 +4,7 @@ import java.util.*;
 public class Main {
     public static void main(String[] args) {
         // Target folder (.compoent.ts)
-        File targetFolder = new File("D:\\project\\t-survey-web\\src\\app\\dashboard\\pages\\create-survey");
+        File targetFolder = new File("C:\\project\\t-survey-web\\src\\app\\dashboard\\pages\\create-survey\\target-respondent");
         // Result generated unit test (.components.spec.ts)
         File resultFolder = new File("E:\\project-shared\\result");
         
