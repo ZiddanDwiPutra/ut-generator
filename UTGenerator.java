@@ -146,7 +146,7 @@ class TSDataFile {
 
     public boolean isNoParamFunction() {
         if(isStartOfFunction()) {
-            return !lineText.contains(",");
+            return lineText.contains("()");
         }else return false;
     }
 
@@ -163,7 +163,7 @@ class TSDataFile {
                 "  const spyMethod = jest.spyOn(component, '[METHOD]');\n  component.[METHOD]([PARAMS]);"
                         .replace(DEF.METHOD, fun.functionName)
                         .replace(DEF.PARAMS, ""),
-                "  spyMethod.toHaveBeenCalled();",
+                "  expect(spyMethod).toHaveBeenCalled();",
                 "});\n\n"
             );
             if(!isValidFunction(fun.functionName)) return "";
