@@ -2,11 +2,12 @@ import java.io.File;
 import java.util.*;
 
 public class Main {
+    public static String version = "0.4";
     public static void main(String[] args) {
         // Target folder (.compoent.ts)
-        File targetFolder = new File("C:\\project\\t-survey-web\\src\\app\\dashboard\\pages\\create-survey\\target-respondent");
+        File targetFolder = new File("C:\\project");
         // Result generated unit test (.components.spec.ts)
-        File resultFolder = new File("E:\\project-shared\\result");
+        File resultFolder = new File("C:\\project\\result-gen");
         
         if(!resultFolder.exists()) resultFolder.mkdirs();
         new Main(targetFolder, resultFolder);
@@ -25,7 +26,7 @@ public class Main {
 
     private void printLogger() {
         String bold = "\033[0;1m";
-        System.out.println(bold+"\nUT GENERATOR V.0.3");
+        System.out.println(bold+"\nUT GENERATOR V."+version);
         System.out.println(bold+"================GENERATE_SUCCESS=====================");
         System.out.println("Result Folder in : ".concat(this.resultFolder.getPath()));
         System.out.println("From Target Folder : ".concat(this.targetFolder.getPath()));
