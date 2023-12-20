@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Scanner;
+import java.util.stream.Collectors;
 
 enum FunctionType {
     FUNCTION_NO_PARAM,
@@ -55,7 +56,7 @@ public class UTGenerator {
     private void handlePerLine(FileWriter curFile) {
         dataLines.forEach(dataFile -> {
             try {
-                if(dataFile.isNoParamFunction()) {
+                if(dataFile.isPublicFunction()) {
                     FunctionProp fun = new FunctionProp(dataFile.lineText);
                     if(!isNotBeRecreate(fun)) {
                         addLogger(FunctionType.FUNCTION_NO_PARAM, fun.functionName);
@@ -113,16 +114,44 @@ public class UTGenerator {
     }
 }
 
+class ParamDef {
+    public String name = "";
+    public String type = "";
+
+    public ParamDef(String name, String type) {
+        this.name = name;
+        this.type = type;
+    }
+}
 class FunctionProp {
-    public List<String> params = new ArrayList<>();
+    public List<ParamDef> params = new ArrayList<>();
     public String functionName = "";
+
+    private void setFunctionName(String lineText) {
+        String name = lineText;
+        String[] allPrefix = {"async ", "public "};
+        for (String prefix : allPrefix) name = name.replace(prefix, "");
+        this.functionName = name;
+    }
+
+    private void setParams(String lineText) {
+        for (String p : lineText.split(",")) {
+            if(p.contains(":")) {
+                String param = p.substring(0, p.indexOf(":")).trim();
+                String typeData = p.substring(p.indexOf(":")+1, p.length()).trim();
+                this.params.add(new ParamDef(param, typeData));
+            }else this.params.add(new ParamDef(p, ""));
+        }
+    }
 
     public FunctionProp(String lineText) {
         Integer[] arr = {
                 lineText.indexOf("("),
                 lineText.indexOf(")"),
         };
-        this.functionName = lineText.substring(0, arr[0]).trim().replace("async ", "");
+        setFunctionName(lineText.substring(0, arr[0]).trim());
+        String paramsLine = lineText.substring(arr[0]+1, arr[1]);
+        if(paramsLine.length() > 0 ) setParams(paramsLine);
     }
 }
 
@@ -150,6 +179,12 @@ class TSDataFile {
         }else return false;
     }
 
+    public boolean isPublicFunction() {
+        if(isStartOfFunction()) {
+            return !(lineText.contains("protected ") || lineText.contains("private "));
+        }else return false;
+    }
+
     public boolean isStartOfFunction() {
         CharSequence[] hasList = {"(", ")", "{"};
         CharSequence[] notHasList = FunctionDefinition.notHaveList;
@@ -157,12 +192,24 @@ class TSDataFile {
     }
 
     class Creator {
+
+        public String createParams(FunctionProp fun) {
+           List<String> result = new ArrayList<>();
+           fun.params.forEach(e -> {
+               result.add("let "+ e.name + ": " + e.type);
+           });
+           return result.stream().distinct().collect(Collectors.joining(";\n")) + ";";
+        }
+
         public String createStdUT(FunctionProp fun) {
+            String definerParams = createParams(fun);
+            String params = fun.params.stream().map(e -> e.name).distinct().collect(Collectors.joining(", "));
             String stdUT = newLiner(
-                "test(\"Should Check '[METHOD]' method\", () => {".replace(DEF.METHOD, fun.functionName),
-                "  const spyMethod = jest.spyOn(component, '[METHOD]');\n  component.[METHOD]([PARAMS]);"
+                Config.startOfTest+"(\"Should Check '[METHOD]' method\", () => {".replace(DEF.METHOD, fun.functionName),
+                "  "+definerParams,
+                "  const spyMethod = "+ Config.mainOfSpyOn +"spyOn(component, '[METHOD]');\n  component.[METHOD]([PARAMS]);"
                         .replace(DEF.METHOD, fun.functionName)
-                        .replace(DEF.PARAMS, ""),
+                        .replace(DEF.PARAMS, params),
                 "  expect(spyMethod).toHaveBeenCalled();",
                 "});\n\n"
             );
@@ -171,7 +218,7 @@ class TSDataFile {
         }
         public Boolean isValidFunction(String functionName) {
             CharSequence[] has = {};
-            CharSequence[] notHas = {"*", ":", ".", "for", "if", "switch"};
+            CharSequence[] notHas = {"*", ".", "for", "if", "switch"};
             return hasNotHas(has, notHas);
         }
 
