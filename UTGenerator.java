@@ -3,10 +3,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Scanner;
+import java.util.*;
 import java.util.stream.Collectors;
 
 enum FunctionType {
@@ -46,14 +43,18 @@ public class UTGenerator {
         try {
             String writeTo = resultFolder.getPath() + "\\" + name;
             FileWriter curFile = new FileWriter(writeTo);
-            handlePerLine(curFile);
+            handleDescriber(curFile, name);
             curFile.close();
+
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private void handlePerLine(FileWriter curFile) {
+    private void handleDescriber(FileWriter curFile, String name) {
+        try {
+            curFile.write("describe('"+ name +"', () => {\n");
+        } catch (IOException e) {e.printStackTrace();}
         dataLines.forEach(dataFile -> {
             try {
                 if(dataFile.isPublicFunction()) {
@@ -65,6 +66,9 @@ public class UTGenerator {
                 }
             } catch (IOException e) {e.printStackTrace();}
         });
+        try {
+            curFile.write("\n});");
+        } catch (IOException e) {e.printStackTrace();}
     }
 
     private boolean isNotBeRecreate(FunctionProp funProp) {
@@ -196,22 +200,41 @@ class TSDataFile {
         public String createParams(FunctionProp fun) {
            List<String> result = new ArrayList<>();
            fun.params.forEach(e -> {
-               result.add("let "+ e.name + ": " + e.type);
+               if(Lib.asListString(Config.typeData).contains(e.type)) {
+                   result.add(Config.inlineTab + "let "+ e.name + ": " + e.type + setterOfTypeData(e.type));
+               }else {
+                   result.add(Config.inlineTab + "let "+ e.name + ": any = {}");
+               }
            });
            return result.stream().distinct().collect(Collectors.joining(";\n")) + ";";
         }
 
+        public String setterOfTypeData(String type) {
+            String result = "";
+            if(Lib.asListString(Config.typeData).contains(type)) {
+                if(type.equals("string")) result = " = \"\"";
+                else if(type.equals("number"))  result = " = 0";
+                else if(type.equals("any"))  result = " = {id: \"\"}";
+                else if(type.equals("boolean"))  result = " = false";
+            }
+            return result;
+        }
+
         public String createStdUT(FunctionProp fun) {
-            String definerParams = createParams(fun);
+            String definerParams = createParams(fun).equals(";") ? "" : createParams(fun);
             String params = fun.params.stream().map(e -> e.name).distinct().collect(Collectors.joining(", "));
-            String stdUT = newLiner(
-                Config.startOfTest+"(\"Should Check '[METHOD]' method\", () => {".replace(DEF.METHOD, fun.functionName),
-                "  "+definerParams,
-                "  const spyMethod = "+ Config.mainOfSpyOn +"spyOn(component, '[METHOD]');\n  component.[METHOD]([PARAMS]);"
-                        .replace(DEF.METHOD, fun.functionName)
-                        .replace(DEF.PARAMS, params),
-                "  expect(spyMethod).toHaveBeenCalled();",
-                "});\n\n"
+            String stdUT = newLiner( " ",
+                Config.tab + Config.startOfTest+"(\"Should Check '[METHOD]' method\", () => {".replace(DEF.METHOD, fun.functionName),
+                definerParams,
+                Config.inlineTab + "const spyMethod = " +
+                    Config.mainOfSpyOn +"spyOn(component, '[METHOD]');\n"
+                    .replace(DEF.METHOD, fun.functionName)
+                    .replace(DEF.PARAMS, params) +
+                    Config.inlineTab + "component.[METHOD]([PARAMS]);"
+                    .replace(DEF.METHOD, fun.functionName)
+                    .replace(DEF.PARAMS, params),
+                Config.inlineTab +"expect(spyMethod).toHaveBeenCalled();",
+                Config.tab + "});"
             );
             if(!isValidFunction(fun.functionName)) return "";
             return stdUT;
@@ -225,6 +248,7 @@ class TSDataFile {
         public String newLiner(String ... arr){
             String result = "";
             for(String text: arr) {
+                if(text.equals(""))continue;
                 result += text;
                 result += "\n";
             };
