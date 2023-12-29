@@ -4,6 +4,9 @@ import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 enum FunctionType {
@@ -52,21 +55,51 @@ public class UTGenerator {
     }
 
     private void handleDescriber(FileWriter curFile, String name) {
-        try {
-            curFile.write("describe('"+ name +"', () => {\n");
-        } catch (IOException e) {e.printStackTrace();}
+        List<String> lines = new ArrayList<>();
+
+        AtomicBoolean isConstructorLine = new AtomicBoolean(false);
+        ServiceProp serviceProp = new ServiceProp();
+
         dataLines.forEach(dataFile -> {
-            try {
-                if(dataFile.isPublicFunction()) {
-                    FunctionProp fun = new FunctionProp(dataFile.lineText);
-                    if(!isNotBeRecreate(fun)) {
-                        addLogger(FunctionType.FUNCTION_NO_PARAM, fun.functionName);
-                        curFile.write(dataFile.creator.createStdUT(fun));
-                    }
+            if(dataFile.isConstructor()) isConstructorLine.set(true);
+            if(isConstructorLine.get() == true) {
+                if(dataFile.lineText.contains("{")) isConstructorLine.set(false);
+                serviceProp.scan(dataFile.lineText);
+            }else {
+                serviceProp.scanUsage(dataFile.lineText);
+            }
+            if(dataFile.isPublicFunction()) {
+                FunctionProp fun = new FunctionProp(dataFile.lineText);
+                if(!isNotBeRecreate(fun)) {
+                    addLogger(FunctionType.FUNCTION_NO_PARAM, fun.functionName);
+                    lines.add(dataFile.creator.createStdUT(fun));
                 }
-            } catch (IOException e) {e.printStackTrace();}
+            }
         });
+
         try {
+//            curFile.write(serviceProp.usages.toString());
+            curFile.write("describe('"+ name +"', () => {\n");
+
+            for (String service : serviceProp.services) {
+                curFile.write(Config.tab + "const mock"+service+" = jasmine.createSpyObj('"+service+"', []);\n");
+            }
+
+            curFile.write("\n"+Config.tab + "beforeEach(async () => {\n" +
+                    Config.inlineTab + "await " +Config.configureTestname + "({\n"+
+                    Config.inlineTab + Config.tab + "providers: ["
+            );
+
+            for (String service : serviceProp.services) {
+                curFile.write("\n"+Config.inlineTab + Config.inlineTab + "{provide: " + service + ", useValue: mock" + service + "},");
+            }
+            curFile.write("\n" + Config.inlineTab + Config.tab + "],\n");
+            curFile.write(Config.inlineTab + "});\n");
+            curFile.write(Config.tab + "});\n");
+
+            for (String line : lines) {
+                curFile.write(line);
+            }
             curFile.write("\n});");
         } catch (IOException e) {e.printStackTrace();}
     }
@@ -126,6 +159,12 @@ class ParamDef {
         this.name = name;
         this.type = type;
     }
+
+    public static String[] extract(String p) {
+        String param = p.substring(0, p.indexOf(":")).trim();
+        String typeData = p.substring(p.indexOf(":")+1, p.length()).trim();
+        return new String[]{param, typeData};
+    }
 }
 class FunctionProp {
     public List<ParamDef> params = new ArrayList<>();
@@ -141,24 +180,59 @@ class FunctionProp {
     private void setParams(String lineText) {
         for (String p : lineText.split(",")) {
             if(p.contains(":")) {
-                String param = p.substring(0, p.indexOf(":")).trim();
-                String typeData = p.substring(p.indexOf(":")+1, p.length()).trim();
-                this.params.add(new ParamDef(param, typeData));
+                String[] ext = ParamDef.extract(p);
+                this.params.add(new ParamDef(ext[0], ext[1]));
             }else this.params.add(new ParamDef(p, ""));
         }
     }
 
     public FunctionProp(String lineText) {
-        Integer[] arr = {
-                lineText.indexOf("("),
-                lineText.indexOf(")"),
-        };
-        setFunctionName(lineText.substring(0, arr[0]).trim());
-        String paramsLine = lineText.substring(arr[0]+1, arr[1]);
-        if(paramsLine.length() > 0 ) setParams(paramsLine);
+        if(lineText.contains(")") && lineText.contains("(")) {
+            Integer[] arr = {
+                    lineText.indexOf("("),
+                    lineText.indexOf(")"),
+            };
+            setFunctionName(lineText.substring(0, arr[0]).trim());
+            String paramsLine = lineText.substring(arr[0]+1, arr[1]);
+            if(paramsLine.length() > 0 ) setParams(paramsLine);
+        }
     }
 }
 
+class ServiceProp {
+    public List<String> services = new ArrayList<>();
+    public List<String> usages = new ArrayList<>();
+    public List<ParamDef> params = new ArrayList<>();
+
+    public ServiceProp() {}
+
+    public void scan(String line) {
+        FunctionProp fun = new FunctionProp(line);
+        List<ParamDef> allService = fun.params.stream().filter(e -> e.type.contains(Config.serviceNaming)).collect(Collectors.toList());
+        services.addAll(allService.stream().map(e -> e.type).collect(Collectors.toList()));
+        if(allService.size() > 0) params.addAll(allService);
+        else {
+            if(line.contains(":") && line.contains(Config.serviceNaming)) {
+                String[] ext = ParamDef.extract(line);
+                String variable = ext[0].trim().replace("private ", "").replace("public ", "");
+                this.params.add(new ParamDef(variable, ext[1].replace(",", "")));
+                this.services.add(ext[1].replace(",", ""));
+            }
+        }
+    }
+    public void scanUsage(String line) {
+        for (ParamDef param : this.params) {
+            if(line.contains(param.name)) {
+                int start = line.indexOf(param.name + ".");
+                if(start > 0) {
+                    String usg = line.substring(start, line.length());
+
+                    usages.add(usg);
+                }
+            };
+        }
+    }
+}
 class TSDataFile {
     public String lineText = "";
     public Creator creator = new Creator();
@@ -193,6 +267,10 @@ class TSDataFile {
         CharSequence[] hasList = {"(", ")", "{"};
         CharSequence[] notHasList = FunctionDefinition.notHaveList;
         return hasNotHas(hasList, notHasList);
+    }
+
+    public boolean isConstructor() {
+        return this.lineText.trim().startsWith("constructor");
     }
 
     class Creator {

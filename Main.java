@@ -2,7 +2,7 @@ import java.io.File;
 import java.util.*;
 
 public class Main {
-    public static String version = "0.5";
+    public static String version = "0.6";
     public static void main(String[] args) {
         // Target folder (.compoent.ts)
         File targetFolder = new File("C:\\project\\bcasek\\bcas_frontend_mobileview\\src\\app\\pages");
